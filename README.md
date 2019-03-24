@@ -35,7 +35,7 @@ returns the camera instance and the port used as a tuple
 
 ### Device API
 #### Cam(brand, host, port)
-Constructor; typically does not get called directly but via the `createCam`
+Constructor; typically does not get called directly but via the `createCam` function
 
 
 ### Device Properties
