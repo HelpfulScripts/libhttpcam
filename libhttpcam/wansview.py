@@ -1,8 +1,8 @@
 import time
 import math
 import re
-from custom_components.libhttpcam import HttpCam, cmdConcat, Response, Action, Trigger, Status
-from custom_components.libhttpcam import NTP_SERVER
+from libhttpcam import HttpCam, cmdConcat, Response, Action, Trigger, Status, IRmode
+from libhttpcam import NTP_SERVER, RESULT_CODE
 import logging
 import requests
 from requests.auth import HTTPDigestAuth
@@ -17,18 +17,6 @@ ALERT_LENGTH = 5        # seconds of audio alert (5 or more)
 
 JOINT_TRIGGER = 'off'   # 'on' | 'off' = independent trigger
 
-RESULT_CODE = {
-    '0': 'Success',
-    '-1': 'CGI request string format error',
-    '-2': 'Username or password error',
-    '-3': 'Access denied or unsupported',
-    '-4': 'CGI execute fail',
-    '-5': 'Timeout',
-    '-6': 'Reserved',
-    '-7': 'Unknown Error',
-    '-8': 'Disconnected or not a camera'
-}
-
 
 class Wansview(HttpCam):
     """ http-based communication routines for WANSVIEW cameras. """
@@ -38,14 +26,10 @@ class Wansview(HttpCam):
             port = 80
         super(Wansview, self).__init__('Wansview', url, port)
 
-    def set_credentials(self, user='', password=''):
-        super(Wansview, self).set_credentials(user, password)
-        self._auth = HTTPDigestAuth(self._usr, self._pwd)
-
-    def getQueryPath(self, cmd, paramStr):
+    def _getQueryPath(self, cmd, paramStr):
         return '%s/%s?%s' % (CMD_PATH, cmd, paramStr)
 
-    def parseResult(self, result, params):
+    def _parseResult(self, result, params):
         # p = re.compile(r'(((?:var .*;\n)+)|.+\s*)')
         p = re.compile(r'(((?:var .*.\n?)+)|.+\s*)')
         # v = re.compile(r'var (\w*?)=(.*?);\s*')
@@ -72,10 +56,10 @@ class Wansview(HttpCam):
         for s in filter(allButSuccess, success):
             pr = resultCheck(s, pr)
         if len(pr[1]) > 0:
-            _LOGGER.debug("parseResult '%s': '%s", pr[0], pr[1])
+            _LOGGER.debug("_parseResult '%s': '%s", pr[0], pr[1])
         return pr
 
-    async def async_get(self, url, raw):
+    async def _async_get(self, url, raw):
         _LOGGER.debug('async get %s', url)
         response = requests.get(url, auth=self._auth)
         return response.content if raw else response.text
@@ -85,8 +69,17 @@ class Wansview(HttpCam):
     # Device configurations
     #
 
+    def set_credentials(self, user='', password=''):
+        super(Wansview, self).set_credentials(user, password)
+        self._auth = HTTPDigestAuth(self._usr, self._pwd)
+
+    async def async_get_model(self) -> str:
+        ''' gets the camera's model '''
+        self._model = 'unknown'
+        return self._model
+
     async def async_reboot(self) -> Response:
-        return await self.async_fetch('device.cgi', [
+        return await self._async_fetch('device.cgi', [
             ('cmd', 'sysreboot')
         ])
 
@@ -105,7 +98,7 @@ class Wansview(HttpCam):
         ntp_server = NTP_SERVER[0]
 
         stime = '{}-{:02d}-{:02d};{:02d}:{:02d}:{:02d}'.format(year, mon, day, hour, minute, sec)
-        return await self.async_fetch('device.cgi', [
+        return await self._async_fetch('device.cgi', [
             # [('cmd', 'setsystime'), ('stime', stime), ('timezone', time_zone+is_dst)],
             [('cmd', 'setsystime'), ('stime', stime), ('timezone', time_zone)],
             [('cmd', 'setntpattr'), ('ntpenable', '0'), ('ntpinterval', '1'), ('ntpserver', ntp_server)]
@@ -120,7 +113,7 @@ class Wansview(HttpCam):
         }
         led = STATUS[status]   # open | close | auto
         brightness = LED_BRIGHTNESS                 # 1...100
-        return await self.async_fetch('irctrl.cgi', [
+        return await self._async_fetch('irctrl.cgi', [
             [('cmd', 'setinfrared'), ('infraredstatus', led)],
             [('cmd', 'setirparams'), ('irparams', brightness)]
         ])
@@ -136,11 +129,11 @@ class Wansview(HttpCam):
             await self.async_set_irled(status)
 
         if ctrl == 'auto':
-            return await self.async_fetch('irctrl.cgi', [
+            return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)]
             ])
         else:
-            return await self.async_fetch('irctrl.cgi', [
+            return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)],
                 [('cmd', 'setircutstatus'), ('ircutstatus', ircutstatus)],
                 [('cmd', 'setircuttime'), ('starttime', start), ('endtime', end)]
@@ -149,7 +142,7 @@ class Wansview(HttpCam):
 
     async def async_set_ftp_config(self, server, port, user, passwd) -> Response:
         ''' sets up the ftp settings on foscam '''
-        return await self.async_fetch('ftp.cgi', [
+        return await self._async_fetch('ftp.cgi', [
             [('cmd', 'setftpattr'),
                 ('ft_server',    server),
                 ('ft_port',      port),
@@ -158,25 +151,25 @@ class Wansview(HttpCam):
                 ('ft_dirname',   './')]
         ])
 
-    async def async_set_alarm_action(self, action: Action) -> Response:
-        ''' Set recording and pre-recording parameters. '''
-        ftp_snap = 'on' if action.ftp_snap else 'off'
-        ftp_rec = 'on' if action.ftp_rec else 'off'
-        audio = 'on' if action.audio else 'off'
-        return await self.async_fetch('alarm.cgi', [
-            [('cmd', 'setalarmact'), ('aname', 'ftpsnap'), ('switch', ftp_snap)],
-            [('cmd', 'setalarmact'), ('aname', 'ftprec'), ('switch', ftp_rec)],
-            [('cmd', 'setalarmact'), ('aname', 'type'), ('switch', JOINT_TRIGGER)],
-            [('cmd', 'setalarmact'), ('aname', 'emailsnap'), ('switch', 'off')],
-            [('cmd', 'setalarmact'), ('aname', 'snap'), ('switch', 'off')],
-            [('cmd', 'setalarmact'), ('aname', 'record'), ('switch', 'off')],
-            [('cmd', 'setalarmact'), ('aname', 'relay'), ('switch', 'off')],
-            [('cmd', 'setalarmact'), ('aname', 'preset'), ('switch', 'off')],
-            [('cmd', 'setrelayattr'), ('time', '5')],
-            [('cmd', 'setmotorattr'), ('alarmpresetindex', '1')],
-            [('cmd', 'setalarmact'), ('aname', 'alarmbeep'), ('switch', audio)],
-            [('cmd', 'setalarmbeepattr'), ('audiotime', ALERT_LENGTH)]
-        ])
+    # async def async_set_alarm_action(self, action: Action) -> Response:
+    #     ''' Set recording and pre-recording parameters. '''
+    #     ftp_snap = 'on' if action.ftp_snap else 'off'
+    #     ftp_rec = 'on' if action.ftp_rec else 'off'
+    #     audio = 'on' if action.audio else 'off'
+    #     return await self._async_fetch('alarm.cgi', [
+    #         [('cmd', 'setalarmact'), ('aname', 'ftpsnap'), ('switch', ftp_snap)],
+    #         [('cmd', 'setalarmact'), ('aname', 'ftprec'), ('switch', ftp_rec)],
+    #         [('cmd', 'setalarmact'), ('aname', 'type'), ('switch', JOINT_TRIGGER)],
+    #         [('cmd', 'setalarmact'), ('aname', 'emailsnap'), ('switch', 'off')],
+    #         [('cmd', 'setalarmact'), ('aname', 'snap'), ('switch', 'off')],
+    #         [('cmd', 'setalarmact'), ('aname', 'record'), ('switch', 'off')],
+    #         [('cmd', 'setalarmact'), ('aname', 'relay'), ('switch', 'off')],
+    #         [('cmd', 'setalarmact'), ('aname', 'preset'), ('switch', 'off')],
+    #         [('cmd', 'setrelayattr'), ('time', '5')],
+    #         [('cmd', 'setmotorattr'), ('alarmpresetindex', '1')],
+    #         [('cmd', 'setalarmact'), ('aname', 'alarmbeep'), ('switch', audio)],
+    #         [('cmd', 'setalarmbeepattr'), ('audiotime', ALERT_LENGTH)]
+    #     ])
 
     async def async_set_audio_volumes(self, audio_in=50, audio_out=50) -> Response:
         '''
@@ -184,7 +177,7 @@ class Wansview(HttpCam):
         - audio_in: 1-100
         - audio_out: 1-100
         '''
-        return await self.async_fetch('av.cgi', [
+        return await self._async_fetch('av.cgi', [
             [('cmd', 'setaudioinvolume'), ('aivolume', audio_in)],
             # [('cmd', 'setaudiooutflag')],
             [('cmd', 'setaudiooutvolume'), ('aovolume', audio_out)]
@@ -194,15 +187,21 @@ class Wansview(HttpCam):
     # ------------------
     # Device queries
     #
-    async def async_get_night_mode(self) -> Response:
-        ''' gets the camera's night mode setting '''
-        return await self.async_fetch('irctrl.cgi', [
-            [('cmd', 'getinfrared')],
-            [('cmd', 'getirparams')],
-            [('cmd', 'getircutctrl')],
-            [('cmd', 'getircuttime')],
-            [('cmd', 'getircutstatus')]
+    async def async_get_night_mode(self) -> IRmode:
+        ''' 
+        gets the camera's night mode setting.
+        returns: 
+        - bool IR-LED Status
+        - bool IR Sensor Status
+        '''
+        result = await self._async_fetch('irctrl.cgi', [
+            [('cmd', 'getinfrared')],       # 'infraredstatus': 'close'
+            [('cmd', 'getirparams')],       # 'irparams': '20' - brighness
+            [('cmd', 'getircutctrl')],      # 'ircutctrlstatus': 'manual'
+            [('cmd', 'getircuttime')],      # 'starttime': '19:00:00', 'endtime': '07:00:00'
+            [('cmd', 'getircutstatus')]     # 'ircutstatus: 'close'
         ])
+        return IRmode(LED=result[1]['getinfrared'], Sensor=result[1]['getircutstatus'])
 
     async def async_get_alarm_trigger(self) -> Trigger:
         '''
@@ -218,7 +217,7 @@ class Wansview(HttpCam):
             'sensitivity_3': "'50'", 'name_3': "'MD3'",
             'aa_enable': '1', 'aa_value': '0'})
         '''
-        result = await self.async_fetch('alarm.cgi', [
+        result = await self._async_fetch('alarm.cgi', [
             [('cmd', 'getmdattr'), ('cmd', 'getaudioalarmattr')]
         ])
         # _LOGGER.warn('async_get_alarm_trigger %s\n%s', self._host, result)
@@ -237,7 +236,7 @@ class Wansview(HttpCam):
             'alarmpresetindex': '1', 'act_alarmbeep_switch': 'off', 'audiotime': '5'
         })
         """
-        result = await self.async_fetch('alarm.cgi', [
+        result = await self._async_fetch('alarm.cgi', [
             [('cmd', 'getalarmact'), ('aname', 'ftpsnap')],
             [('cmd', 'getalarmact'), ('aname', 'ftprec')],
             [('cmd', 'getalarmact'), ('aname', 'type')],
@@ -264,7 +263,7 @@ class Wansview(HttpCam):
 
     async def async_get_ftp_config(self) -> Response:
         ''' gets the camera's ftp configuration '''
-        return await self.async_fetch('ftp.cgi', [
+        return await self._async_fetch('ftp.cgi', [
             [('cmd', 'getftpattr')]
         ])
 
@@ -274,32 +273,47 @@ class Wansview(HttpCam):
     #
     async def async_snap_picture(self):
         ''' Manually request snapshot. Returns raw JPEG data. '''
-        (code, path) = await self.async_fetch('av.cgi', [
+        code, path = await self._async_fetch('av.cgi', [
             [('cmd', 'manualsnap'), ('chn', 0)]
         ])
+        if code != RESULT_CODE['0']:
+            _LOGGER.warn('received "%s" getting snap path')
         if isinstance(path, dict):
             imgurl = 'http://%s:%s%s' % (self._host, self._port, path['picpath'])
-            return (RESULT_CODE['0'], await self.async_get(imgurl, raw=True))
+            return (RESULT_CODE['0'], await self._async_get(imgurl, raw=True))
         else:
             return (RESULT_CODE['-3'], '')
 
-    async def async_set_alarm(self, trigger: Trigger, action: Action) -> (Response, Response):
+    async def async_set_alarm(self, trigger: Trigger, action: Action) -> Response:
         ''' Get the current config and set the motion detection on or off '''
         md = 1 if trigger.motion else 0
         ad = 1 if trigger.audio else 0
         sensitivity = math.floor(self.audio_sensitivity/10)
-        t = await self.async_fetch('alarm.cgi', [
+        ftp_snap = 'on' if action.ftp_snap else 'off'
+        ftp_rec = 'on' if action.ftp_rec else 'off'
+        audio = 'on' if action.audio else 'off'
+        return await self._async_fetch('alarm.cgi', [
             [('cmd', 'setmdattr'), ('enable', md), ('sensitivity', self.motion_sensitivity),
                 ('left', 0), ('top', 0), ('right', 1920), ('bottom', 1080), ('index', 0), ('name', 'MD0')],
-            [('cmd', 'setaudioalarmattr'), ('aa_enable', ad), ('aa_value', sensitivity)]
+            [('cmd', 'setaudioalarmattr'), ('aa_enable', ad), ('aa_value', sensitivity)],
+            [('cmd', 'setalarmact'), ('aname', 'ftpsnap'), ('switch', ftp_snap)],
+            [('cmd', 'setalarmact'), ('aname', 'ftprec'), ('switch', ftp_rec)],
+            [('cmd', 'setalarmact'), ('aname', 'type'), ('switch', JOINT_TRIGGER)],
+            [('cmd', 'setalarmact'), ('aname', 'emailsnap'), ('switch', 'off')],
+            [('cmd', 'setalarmact'), ('aname', 'snap'), ('switch', 'off')],
+            [('cmd', 'setalarmact'), ('aname', 'record'), ('switch', 'off')],
+            [('cmd', 'setalarmact'), ('aname', 'relay'), ('switch', 'off')],
+            [('cmd', 'setalarmact'), ('aname', 'preset'), ('switch', 'off')],
+            [('cmd', 'setrelayattr'), ('time', '5')],
+            [('cmd', 'setmotorattr'), ('alarmpresetindex', '1')],
+            [('cmd', 'setalarmact'), ('aname', 'alarmbeep'), ('switch', audio)],
+            [('cmd', 'setalarmbeepattr'), ('audiotime', ALERT_LENGTH)]
         ])
-        a = await self.async_set_alarm_action(action)
-        return (t, a)
 
-    async def async_ptz_preset(self, preset_pos) -> Response:
+    async def async_ptz_preset(self, preset_pos:int) -> Response:
         ''' set to predefined PTZ position '''
         if preset_pos is not None:
-            return await self.async_fetch('ptz.cgi', [
+            return await self._async_fetch('ptz.cgi', [
                 [('cmd',  'setmotorattr'),
                     ('tiltscan',     1),
                     ('panscan',      1),

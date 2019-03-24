@@ -5,14 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="libhttpcam",
-    version="0.0.4",
+    version="0.0.6",
     author="Helpful Scripts",
     author_email="helpfulscripts@gmail.com",
     description="Accessing webcams via REST API",
     keywords='http camera foscam wansview',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/HelpfulScripts",
+    url="https://github.com/HelpfulScripts/libhttpcam",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -36,20 +36,9 @@ class Status(Enum):
 
 Trigger = namedtuple('Trigger', ['motion', 'audio'])
 Action = namedtuple('Action', ['audio', 'ftp_snap', 'ftp_rec'])
+IRmode = namedtuple('IRmode', ['LED', 'Sensor'])
 
 Response = Tuple[str, str]
-
-
-def createCam(model, ip, port):
-    if model.lower() == 'foscam':
-        from custom_components.libhttpcam.foscam import Foscam
-        Cam = Foscam(ip, port)
-        return (Cam, Cam.port)
-    if model.lower() == 'wansview':
-        from custom_components.libhttpcam.wansview import Wansview
-        Cam = Wansview(ip, port)
-        return (Cam, Cam.port)
-    raise HttpCamError("unknown camera model {} @{}".format(model, ip))
 
 
 def cmdConcat(p):
@@ -71,52 +60,33 @@ class HttpCamError(Exception):
 class HttpCam():
     """ http-based communication routines for FOSCAM cameras. """
 
-    def __init__(self, model, host, port):
-        self._model = model
+    def __init__(self, brand, host, port):
+        self._brand = brand
+        self._model = None
         self._host = host
         self._port = port
         self._session = aiohttp.ClientSession()
         self.set_credentials()
         self.set_sensitivities(motion=50, audio=50)
-        _LOGGER.info('HttpCam %s @%s:%s', model, host, port)
+        _LOGGER.info('HttpCam %s @%s:%s', brand, host, port)
 
-    @property
-    def model(self):
-        return self._model
-
-    @property
-    def host(self):
-        return self._host
-
-    @property
-    def port(self):
-        return self._port
-
-    def set_credentials(self, user='', password=''):
-        self._usr = user
-        self._pwd = password
-
-    def set_sensitivities(self, motion=0, audio=0):
-        self.motion_sensitivity = motion
-        self.audio_sensitivity = audio
-
-    def getQueryPath(self, cmd, paramStr) -> str:
+    def _getQueryPath(self, cmd, paramStr) -> str:
         '''
         a camera model-specific construction of a query URL for the
         specified cmd and paramStr.
         '''
         return ''
 
-    def getQueryURL(self, cmd, paramStr) -> str:
+    def _getQueryURL(self, cmd, paramStr) -> str:
         '''
         a camera model-specific construction of a query URL for the
         specified cmd and paramStr.
         '''
-        paramstr = self.getQueryPath(cmd, paramStr)
+        paramstr = self._getQueryPath(cmd, paramStr)
         # paramstr = urllib.parse.quote_plus(paramStr)
         return 'http://%s:%s/%s' % (self._host, self._port, paramstr)
 
-    async def async_get(self, url, raw=False):
+    async def _async_get(self, url, raw=False):
         '''
         asyncronously sends a GET command for the supplied URL and
         if raw == True, returns the raw result, else returns a a text result
@@ -128,7 +98,7 @@ class HttpCam():
         result = response.read() if raw else response.text()
         return await result
 
-    async def async_fetch(self, cmd, params, raw=False) -> Response:
+    async def _async_fetch(self, cmd, params, raw=False) -> Response:
         '''
         asyncronously fetches the response to the command and
         returns a tuple containing
@@ -139,19 +109,27 @@ class HttpCam():
         code = RESULT_CODE['0']
         paramstr = cmdConcat(params) if params else ''
 
-        cmdurl = self.getQueryURL(cmd, paramstr)
-        result = await self.async_get(cmdurl, raw)
+        cmdurl = self._getQueryURL(cmd, paramstr)
+        result = await self._async_get(cmdurl, raw)
         if isinstance(result, str):
-            (code, result) = self.parseResult(result, params)
+            (code, result) = self._parseResult(result, params)
         return (code, result)
 
-    def parseResult(self, result, params):
+    def _parseResult(self, result, params):
         return (RESULT_CODE['-7'], result)
 
     #
     # ------------------
     # Device configurations
     #
+    def set_credentials(self, user='', password=''):
+        self._usr = user
+        self._pwd = password
+
+    def set_sensitivities(self, motion=0, audio=0):
+        self.motion_sensitivity = motion
+        self.audio_sensitivity = audio
+
     async def async_reboot(self) -> Response:
         raise HttpCamError('async_reboot not available', self)
 
@@ -169,9 +147,6 @@ class HttpCam():
     async def async_set_ftp_config(self, server, port, user, passwd) -> Response:
         raise HttpCamError('async_set_ftp_config not available', self)
 
-    async def async_set_alarm_action(self, snapToFTP=True, audioAlarm=True) -> Response:
-        raise HttpCamError('async_set_alarm_action not available', self)
-
     async def async_set_audio_volumes(self, audio_in=50, audio_out=50) -> Response:
         raise HttpCamError('async_set_audio_volumes not available', self)
 
@@ -179,8 +154,33 @@ class HttpCam():
     # ------------------
     # Device queries
     #
-    async def async_get_night_mode(self) -> bool:
-        ''' gets the camera's night mode setting '''
+    @property
+    def brand(self):
+        return self._brand
+
+    @property
+    def model(self):
+        return 'unknown' if self._model is None else self._model
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def port(self):
+        return self._port
+
+    async def async_get_model(self) -> str:
+        ''' gets the camera's model '''
+        raise HttpCamError('async_get_model not available', self)
+
+    async def async_get_night_mode(self) -> IRmode:
+        ''' 
+        gets the camera's night mode setting.
+        returns: 
+        - bool result.LED
+        - bool result.Sensor
+        '''
         raise HttpCamError('async_get_night_mode not available', self)
 
     async def async_get_alarm_trigger(self) -> Trigger:
@@ -195,7 +195,7 @@ class HttpCam():
         ''' returns True if the camera has detected an alarm. '''
         raise HttpCamError('async_get_alarm_triggered not available', self)
 
-    async def async_get_ftp_config(self):
+    async def async_get_ftp_config(self) -> Response:
         ''' gets the camera's ftp configuration '''
         raise HttpCamError('async_get_ftp_config not available', self)
 
@@ -209,8 +209,20 @@ class HttpCam():
     async def async_mjpeg_stream(self, request):
         raise HttpCamError('async_mjpeg_stream not available', self)
 
-    async def async_set_alarm(self, trigger: Trigger, action: Action) -> (Response, Response):
+    async def async_set_alarm(self, trigger: Trigger, action: Action) -> Response:
         raise HttpCamError('async_set_alarm not available', self)
 
-    async def async_ptz_preset(self, preset_pos):
+    async def async_ptz_preset(self, preset_pos:int):
         raise HttpCamError('async_ptz_preset not available', self)
+
+
+def createCam(brand:str, ip:str, port:int=None) -> (HttpCam, int):
+    if brand.lower() == 'foscam':
+        from libhttpcam.foscam import Foscam
+        Cam = Foscam(ip, port)
+        return (Cam, Cam.port)
+    if brand.lower() == 'wansview':
+        from libhttpcam.wansview import Wansview
+        Cam = Wansview(ip, port)
+        return (Cam, Cam.port)
+    raise HttpCamError("unknown camera brand {} @{}".format(brand, ip))

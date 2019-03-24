@@ -1,7 +1,7 @@
 import time
 import re
-from custom_components.libhttpcam import HttpCam, Action, Trigger, Response, Status
-from custom_components.libhttpcam import NTP_SERVER
+from libhttpcam import HttpCam, Action, Trigger, Response, Status, IRmode
+from libhttpcam import NTP_SERVER, RESULT_CODE
 import logging
 # import xml.etree.ElementTree as ET
 
@@ -24,18 +24,6 @@ ALARM_ACTION = {
 }
 
 CMD_PATH = 'cgi-bin/CGIProxy.fcgi'
-
-RESULT_CODE = {
-    '0': 'Success',
-    '-1': 'CGI request string format error',
-    '-2': 'Username or password error',
-    '-3': 'Access denied or unsupported',
-    '-4': 'CGI execute fail',
-    '-5': 'Timeout',
-    '-6': 'Reserved',
-    '-7': 'Unknown Error',
-    '-8': 'Disconnected or not a camera'
-}
 
 LED_MODE_AUTO = 0
 LED_MODE_MANUAL = 1
@@ -62,18 +50,18 @@ class Foscam(HttpCam):
         super(Foscam, self).__init__('Foscam', url, port)
         self.arm_cmd = None
 
-    def getQueryPath(self, cmd, paramStr):
+    def _getQueryPath(self, cmd, paramStr):
         if len(paramStr) > 0:
             paramStr = '&' + paramStr
         return '%s?cmd=%s%s&usr=%s&pwd=%s' % (CMD_PATH, cmd, paramStr, self._usr, self._pwd)
 
-    def parseResult(self, result, params):
+    def _parseResult(self, result, params):
         p = re.compile(r'.*?<(?P<first>\S*?)>(\S*?)<\/(?P=first)>')
         d = dict(p.findall(result))
         code = RESULT_CODE[str(d['result'])]
         d.pop('result', None)
         if len(d) > 0:
-            _LOGGER.debug('parseResult  %s: %s', code, d)
+            _LOGGER.debug('_parseResult  %s: %s', code, d)
         return (code, d)
 
     #
@@ -81,12 +69,12 @@ class Foscam(HttpCam):
     # Device configurations
     #
     async def async_reboot(self) -> Response:
-        return await self.async_fetch('rebootSystem', [])
+        return await self._async_fetch('rebootSystem', [])
 
     async def async_set_system_time(self) -> Response:
         ''' Set system time '''
         _t = time.localtime()
-        return await self.async_fetch('setSystemTime', [
+        return await self._async_fetch('setSystemTime', [
             ('timeSource',    1),
             ('ntpServer',     NTP_SERVER[0]),
             ('dateFormat',    0),
@@ -105,13 +93,13 @@ class Foscam(HttpCam):
     async def async_set_irled(self, status: Status) -> Response:
         ''' sets just the IR LED status: STATUS_ON, STATUS_OFF, STATUS_AUTO '''
         if status == Status.STATUS_AUTO:
-            await self.async_fetch('setInfraLedConfig', [('mode', LED_MODE_AUTO)])
+            await self._async_fetch('setInfraLedConfig', [('mode', LED_MODE_AUTO)])
         else:   # STATUS_ON or STATUS_OFF
-            await self.async_fetch('setInfraLedConfig', [('mode', LED_MODE_MANUAL)])
+            await self._async_fetch('setInfraLedConfig', [('mode', LED_MODE_MANUAL)])
             if (status == Status.STATUS_ON):
-                await self.async_fetch('openInfraLed', [])
+                await self._async_fetch('openInfraLed', [])
             else:
-                await self.async_fetch('closeInfraLed', [])
+                await self._async_fetch('closeInfraLed', [])
 
     async def async_set_night_mode(self, status: Status) -> Response:
         '''
@@ -130,15 +118,15 @@ class Foscam(HttpCam):
             ('userName', user),
             ('password', passwd)
         ]
-        return await self.async_fetch('setFtpConfig', params)
+        return await self._async_fetch('setFtpConfig', params)
 
-    async def async_set_alarm_action(self, snapToFTP=True, audioAlarm=True) -> Response:
-        ''' Set recording and pre-recording parameters. '''
-        return await self.async_fetch('set_alarm_record_config', [
-            ('isEnablePreRecord',    1),
-            ('preRecordSecs',        5),
-            ('alarmRecordSecs',      30)
-        ])
+    # async def async_set_alarm_action(self, snapToFTP=True, audioAlarm=True) -> Response:
+    #     ''' Set recording and pre-recording parameters. '''
+    #     return await self._async_fetch('set_alarm_record_config', [
+    #         ('isEnablePreRecord',    1),
+    #         ('preRecordSecs',        5),
+    #         ('alarmRecordSecs',      30)
+    #     ])
 
     async def async_set_audio_volumes(self, audio_in=50, audio_out=50) -> Response:
         '''
@@ -152,9 +140,21 @@ class Foscam(HttpCam):
     # ------------------
     # Device queries
     #
-    async def async_get_night_mode(self):
-        ''' gets the camera's night mode setting '''
-        return False
+    async def async_get_model(self) -> str:
+        ''' gets the camera's model '''
+        result = await self._async_fetch('getProductModelName', [])
+        self._model = result[1]['modelName']
+        return self._model
+
+    async def async_get_night_mode(self) -> IRmode:
+        ''' 
+        gets the camera's night mode setting.
+        returns: 
+        - bool IR-LED Status
+        - bool IR Sensor Status
+        Foscam does not publish a call for getting the current IR-LED status
+        '''
+        return IRmode(LED=False, Sensor=False)
 
     async def async_get_alarm_trigger(self) -> Trigger:
         """
@@ -168,7 +168,7 @@ class Foscam(HttpCam):
             'area2': '1023', 'area3': '1023', 'area4': '1023', 'area5': '1023', 'area6': '1023', 'area7': '1023',
             'area8': '1023', 'area9': '1023'})
         """
-        result = await self.async_fetch('getMotionDetectConfig', [])
+        result = await self._async_fetch('getMotionDetectConfig', [])
         # _LOGGER.warn('async_get_motion_detection %s\n%s', self._host, result)
         return Trigger(audio=False, motion=True if result[1]['isEnable'] == '1' else False)
 
@@ -184,7 +184,7 @@ class Foscam(HttpCam):
             'area2': '1023', 'area3': '1023', 'area4': '1023', 'area5': '1023', 'area6': '1023', 'area7': '1023',
             'area8': '1023', 'area9': '1023'})
         """
-        result = await self.async_fetch('getMotionDetectConfig', [])
+        result = await self._async_fetch('getMotionDetectConfig', [])
         # _LOGGER.warn('async_get_motion_detection %s\n%s', self._host, result)
         link = int(result[1]['linkage'])
         return Action(
@@ -197,12 +197,12 @@ class Foscam(HttpCam):
         ''' returns True if the camera has detected an alarm. '''
         return False
 
-    async def async_get_ftp_config(self):
+    async def async_get_ftp_config(self) -> Response:
         ''' gets up the ftp settings on foscam '''
-        return await self.async_fetch('getFtpConfig', [])
+        return await self._async_fetch('getFtpConfig', [])
 
-    async def async_get_record_list(self):
-        return await self.async_fetch('getRecordList', [])
+    async def async_get_record_list(self) -> Response:
+        return await self._async_fetch('getRecordList', [])
 
     #
     # ------------------
@@ -211,10 +211,10 @@ class Foscam(HttpCam):
 
     async def async_snap_picture(self):
         ''' Manually request snapshot. Returns raw JPEG data. '''
-        return await self.async_fetch('snapPicture2', {}, raw=True)
+        return await self._async_fetch('snapPicture2', {}, raw=True)
 
     async def async_mjpeg_stream(self, request):
-        return await self.async_fetch('GetMJStream', {}, raw=True)
+        return await self._async_fetch('GetMJStream', {}, raw=True)
 
     async def async_set_alarm(self, trigger: Trigger, action: Action) -> Response:
         ''' Get the current config and set the motion detection on or off '''
@@ -224,6 +224,11 @@ class Foscam(HttpCam):
         # if code != RESULT_CODE['0']:    # unsuccessful
         #     return (code, result)
 
+        await self._async_fetch('set_alarm_record_config', [
+            ('isEnablePreRecord',    1),
+            ('preRecordSecs',        5),
+            ('alarmRecordSecs',      30)
+        ])
         if not self.arm_cmd:
             schedule = ''
             area = ''
@@ -245,4 +250,4 @@ class Foscam(HttpCam):
             ('sensitivity',      motionSensitityMap(self.motion_sensitivity)),    # low - high: 4, 3, 0, 1, 2
             ('snapInterval',     '1'),    # in seconds# in seconds
             ('triggerInterval',  '5')]    # in seconds
-        return await self.async_fetch(self.arm_cmd, params)
+        return await self._async_fetch(self.arm_cmd, params)
