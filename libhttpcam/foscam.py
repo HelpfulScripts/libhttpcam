@@ -120,14 +120,6 @@ class Foscam(HttpCam):
         ]
         return await self._async_fetch('setFtpConfig', params)
 
-    # async def async_set_alarm_action(self, snapToFTP=True, audioAlarm=True) -> Response:
-    #     ''' Set recording and pre-recording parameters. '''
-    #     return await self._async_fetch('set_alarm_record_config', [
-    #         ('isEnablePreRecord',    1),
-    #         ('preRecordSecs',        5),
-    #         ('alarmRecordSecs',      30)
-    #     ])
-
     async def async_set_audio_volumes(self, audio_in=50, audio_out=50) -> Response:
         '''
         Set audio in/out volumes.
@@ -224,7 +216,7 @@ class Foscam(HttpCam):
         # if code != RESULT_CODE['0']:    # unsuccessful
         #     return (code, result)
 
-        await self._async_fetch('set_alarm_record_config', [
+        await self._async_fetch('setAlarmRecordConfig', [
             ('isEnablePreRecord',    1),
             ('preRecordSecs',        5),
             ('alarmRecordSecs',      30)

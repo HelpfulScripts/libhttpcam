@@ -29,9 +29,9 @@ NTP_SERVER = [
 
 
 class Status(Enum):
-    STATUS_ON = 1
-    STATUS_OFF = 0
-    STATUS_AUTO = -1
+    STATUS_ON = 'on'
+    STATUS_OFF = 'off'
+    STATUS_AUTO = 'auto'
 
 
 Trigger = namedtuple('Trigger', ['motion', 'audio'])
@@ -193,7 +193,7 @@ class HttpCam():
 
     async def async_get_alarm_triggered(self) -> bool:
         ''' returns True if the camera has detected an alarm. '''
-        raise HttpCamError('async_get_alarm_triggered not available', self)
+        return False
 
     async def async_get_ftp_config(self) -> Response:
         ''' gets the camera's ftp configuration '''

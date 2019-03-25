@@ -1,6 +1,6 @@
 # Web Cam Access via HTTP REST-API
 
-A library that unified acess to various web cams with integrated HTTP servers.
+A Python3 library that unified acess to various web cams with integrated HTTP servers.
 
 ## Installation
     pip3 install libhttpcam
