@@ -93,12 +93,15 @@ class Foscam(HttpCam):
     async def async_set_irled(self, status: Status) -> Response:
         ''' sets just the IR LED status: STATUS_ON, STATUS_OFF, STATUS_AUTO '''
         if status == Status.STATUS_AUTO:
+            _LOGGER.info('setting IR to STATUS_AUTO: %s', status)
             await self._async_fetch('setInfraLedConfig', [('mode', LED_MODE_AUTO)])
         else:   # STATUS_ON or STATUS_OFF
             await self._async_fetch('setInfraLedConfig', [('mode', LED_MODE_MANUAL)])
             if (status == Status.STATUS_ON):
+                _LOGGER.info('setting IR to STATUS_ON: %s', status)
                 await self._async_fetch('openInfraLed', [])
             else:
+                _LOGGER.info('setting IR to STATUS_OFF: %s', status)
                 await self._async_fetch('closeInfraLed', [])
 
     async def async_set_night_mode(self, status: Status) -> Response:

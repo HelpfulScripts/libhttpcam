@@ -126,19 +126,22 @@ class Wansview(HttpCam):
         end = NIGHT_END
 
         if status == Status.STATUS_OFF:
+            _LOGGER.info('setting IR to STATUS_OFF: %s', status)
             await self.async_set_irled(status)
 
         if ctrl == 'auto':
+            _LOGGER.info('setting IR to STATUS_AUTO: %s', status)
             return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)]
             ])
         else:
+            _LOGGER.info('setting IR to manual: %s', status)
             return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)],
                 [('cmd', 'setircutstatus'), ('ircutstatus', ircutstatus)],
                 [('cmd', 'setircuttime'), ('starttime', start), ('endtime', end)]
             ])
-        await self.async_set_irled(status)
+        # await self.async_set_irled(status)
 
     async def async_set_ftp_config(self, server, port, user, passwd) -> Response:
         ''' sets up the ftp settings on foscam '''
