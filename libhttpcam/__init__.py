@@ -133,6 +133,12 @@ class HttpCam():
     async def async_reboot(self) -> Response:
         raise HttpCamError('async_reboot not available', self)
 
+    async def async_scheduled_reboot(self) -> Response:
+        raise HttpCamError('async_scheduled_reboot not available', self)
+
+    async def async_set_device_name(self, name) -> Response:
+        raise HttpCamError('async_set_device_name not available', self)
+
     async def async_set_system_time(self) -> Response:
         raise HttpCamError('async_set_system_time not available', self)
 

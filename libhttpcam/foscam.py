@@ -71,6 +71,14 @@ class Foscam(HttpCam):
     async def async_reboot(self) -> Response:
         return await self._async_fetch('rebootSystem', [])
 
+    async def async_scheduled_reboot(self) -> Response:
+        return
+
+    async def async_set_device_name(self, name) -> Response:
+        return await self._async_fetch('setDevName', [
+            ('devName', name),
+        ])
+
     async def async_set_system_time(self) -> Response:
         ''' Set system time '''
         _t = time.localtime()

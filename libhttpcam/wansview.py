@@ -83,6 +83,21 @@ class Wansview(HttpCam):
             ('cmd', 'sysreboot')
         ])
 
+    async def async_scheduled_reboot(self) -> Response:
+        ''' device.cgi?cmd=settimedreboot&enable=1&time=9:0&weekday=7f '''
+        return await self._async_fetch('device.cgi', [
+            ('cmd',    'settimedreboot'),
+            ('enable', '1'),
+            ('time',   '11:45'),   #  11:45 am
+            ('weekday','7f')     #  Sat | Fri | Thu | Wed | Tue | Mon| Sun
+        ])
+
+    async def async_set_device_name(self, name) -> Response:
+        return await self._async_fetch('device.cgi', [
+            ('cmd', 'chgdevicename'),
+            ('devname', name),
+        ])
+
     async def async_set_system_time(self) -> Response:
         ''' Set system time '''
         _t = time.localtime()
