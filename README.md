@@ -3,7 +3,11 @@
 A Python3 library that unified acess to various web cams with integrated HTTP servers.
 
 ## Installation
+### libhttpcam
     pip3 install libhttpcam
+or as update:
+
+    pip3 install --upgrade libhttpcam 
 
 ## Usage
 Use `createCam` to create a camera instance.
