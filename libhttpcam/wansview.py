@@ -140,23 +140,23 @@ class Wansview(HttpCam):
         start = NIGHT_START
         end = NIGHT_END
 
-        if status == Status.STATUS_OFF:
-            _LOGGER.info('setting IR to STATUS_OFF: %s', status)
-            await self.async_set_irled(status)
+        # always set. rather than set only if STATUS_OFF    
+        #if status == Status.STATUS_OFF:
+        _LOGGER.info('setting IR-LED to: %s', status)
+        await self.async_set_irled(status)
 
         if ctrl == 'auto':
-            _LOGGER.info('setting IR to STATUS_AUTO: %s', status)
+            _LOGGER.info('setting IR-sensor to %s (LED status %s)', ctrl, status)
             return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)]
             ])
         else:
-            _LOGGER.info('setting IR to manual: %s', status)
+            _LOGGER.info('setting IR-sensor to %s (LED status %s)', ctrl, status)
             return await self._async_fetch('irctrl.cgi', [
                 [('cmd', 'setircutctrl'), ('ircutctrlstatus', ctrl)],
                 [('cmd', 'setircutstatus'), ('ircutstatus', ircutstatus)],
                 [('cmd', 'setircuttime'), ('starttime', start), ('endtime', end)]
             ])
-        # await self.async_set_irled(status)
 
     async def async_set_ftp_config(self, server, port, user, passwd) -> Response:
         ''' sets up the ftp settings on foscam '''
@@ -219,7 +219,7 @@ class Wansview(HttpCam):
             [('cmd', 'getircuttime')],      # 'starttime': '19:00:00', 'endtime': '07:00:00'
             [('cmd', 'getircutstatus')]     # 'ircutstatus: 'close'
         ])
-        return IRmode(LED=result[1]['getinfrared'], Sensor=result[1]['getircutstatus'])
+        return IRmode(LED=result[1]['infraredstatus'], Sensor=result[1]['ircutstatus'])
 
     async def async_get_alarm_trigger(self) -> Trigger:
         '''
