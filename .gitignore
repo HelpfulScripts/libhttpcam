@@ -3,3 +3,4 @@ dist/
 old/
 *.egg-info/
 *.sh
+.DS_Store
