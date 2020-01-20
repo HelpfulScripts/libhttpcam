@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="libhttpcam",
-    version="0.1.1",
+    version="0.1.3",
     author="Helpful Scripts",
     author_email="helpfulscripts@gmail.com",
     description="Accessing webcams via REST API",

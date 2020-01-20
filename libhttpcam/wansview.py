@@ -47,7 +47,7 @@ class Wansview(HttpCam):
                 return (prev[0], dict(v.findall(s['r'])))
             # error response:
             else:
-                _LOGGER.warn("*** '%s' for '%s'", s['r'], cmdConcat(s['cmd']))
+                _LOGGER.warn("%s: '%s' for '%s'", self._host, s['r'], cmdConcat(s['cmd']))
                 return (s['r'], cmdConcat(s['cmd']))
 
         success = [{'r': x[0].strip().replace('\n', ' '.replace('"', '')),
@@ -295,7 +295,7 @@ class Wansview(HttpCam):
             [('cmd', 'manualsnap'), ('chn', 0)]
         ])
         if code != RESULT_CODE['0']:
-            _LOGGER.warn('received "%s" getting snap path')
+            _LOGGER.warn('%s: received unexpected "%s" getting snap path', self._host, code)
         if isinstance(path, dict):
             imgurl = 'http://%s:%s%s' % (self._host, self._port, path['picpath'])
             return (RESULT_CODE['0'], await self._async_get(imgurl, raw=True))
