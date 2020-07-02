@@ -1,3 +1,7 @@
+#
+# based on https://github.com/feus4177/aiohttp/blob/master/aiohttp/helpers.py with some small adaptations
+#
+
 import hashlib 
 import time
 import os
