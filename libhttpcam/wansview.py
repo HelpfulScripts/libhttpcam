@@ -1,11 +1,11 @@
 import time
 import math
 import re
-from libhttpcam import HttpCam, cmdConcat, Response, Action, Trigger, Status, IRmode
-from libhttpcam import NTP_SERVER, RESULT_CODE
+from libhttpcam.httpcam import HttpCam, cmdConcat, Response, Action, Trigger, Status, IRmode
+from libhttpcam.httpcam import NTP_SERVER, RESULT_CODE
 import logging
 import requests
-from requests.auth import HTTPDigestAuth
+from .AuthDigest import DigestAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,9 +60,17 @@ class Wansview(HttpCam):
         return pr
 
     async def _async_get(self, url, raw):
-        _LOGGER.debug('async get %s', url)
-        response = requests.get(url, auth=self._auth)
-        return response.content if raw else response.text
+        '''
+        asyncronously sends a GET command with Digest authentication for the supplied URL and
+        if raw == True, returns the raw result, else returns a a text result
+        '''
+        if self._session is None:
+            _LOGGER.warn('_async_get: session not defined')
+        else:
+            # _LOGGER.debug('async get %s', url)
+            response = await self._auth.request('GET', url)
+            result = await response.read() if raw else await response.text()
+            return result
 
     #
     # ------------------
@@ -71,7 +79,9 @@ class Wansview(HttpCam):
 
     def set_credentials(self, user='', password=''):
         super(Wansview, self).set_credentials(user, password)
-        self._auth = HTTPDigestAuth(self._usr, self._pwd)
+        if user != '' and password != '':
+            _LOGGER.warn('set_credentials %s: %s', self._host, user)
+            self._auth = DigestAuth(self._usr, self._pwd, self._session)
 
     async def async_get_model(self) -> str:
         ''' gets the camera's model '''

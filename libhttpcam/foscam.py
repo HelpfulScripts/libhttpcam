@@ -1,7 +1,7 @@
 import time
 import re
-from libhttpcam import HttpCam, Action, Trigger, Response, Status, IRmode
-from libhttpcam import NTP_SERVER, RESULT_CODE
+from libhttpcam.httpcam import HttpCam, Response, Status, IRmode, Action, Trigger
+from libhttpcam.httpcam import NTP_SERVER, RESULT_CODE
 import logging
 # import xml.etree.ElementTree as ET
 
