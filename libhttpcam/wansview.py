@@ -80,7 +80,7 @@ class Wansview(HttpCam):
     def set_credentials(self, user='', password=''):
         super(Wansview, self).set_credentials(user, password)
         if user != '' and password != '':
-            _LOGGER.warn('set_credentials %s: %s', self._host, user)
+            _LOGGER.debug('set_credentials %s: %s', self._host, user)
             self._auth = DigestAuth(self._usr, self._pwd, self._session)
 
     async def async_get_model(self) -> str:
