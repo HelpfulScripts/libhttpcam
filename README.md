@@ -62,63 +62,63 @@ sets the credentials used to access the camera.
 
 Sets the sensitivities for motion detection and audio detection. Both take values between 0 (off) and 100 (sensitive).
 
-- `async_reboot(self) -> Response`<br>
+- `async_reboot() -> Response`<br>
 reboots the camera. 
 
-- `async_set_system_time(self) -> Response`<br>
+- `async_set_system_time() -> Response`<br>
 sets the current local time on the camera. This is used for overlays in the snapshots and feeds.
 
-- `async_set_irled(self, status: Status) -> Response`<br>
+- `async_set_irled(status: Status) -> Response`<br>
 sets the status of the active infrared light on the camera. Valid settings are `Status.ON', `Status.OFF`, and `Status.AUTO`
 
-- `async_set_night_mode(self, status: Status) -> Response`<br>
+- `async_set_night_mode(status: Status) -> Response`<br>
 sets the status of the passive infrered sensor. Valid settings are `Status.ON', `Status.OFF`, and `Status.AUTO`
 
-- `async_set_ftp_config(self, server, port, user, passwd) -> Response`<br>
+- `async_set_ftp_config(server, port, user, passwd) -> Response`<br>
 configures the ftp client to allow snapshots and recordings to be stored on a server via FTP.
 
-- `async_set_audio_volumes(self, audio_in=50, audio_out=50) -> Response`<br>
+- `async_set_audio_volumes(audio_in=50, audio_out=50) -> Response`<br>
 configures audio volumes for the camera:
 - audio_in: microphone volume
 - audio_out: speaker and alert volume
 
 ### Device Queries
-- `async_get_model(self) -> str`<br>
+- `async_get_model() -> str`<br>
 queries and returns the brand's model number as a string
 
-- `async_get_night_mode(self) -> IRmode`<br>
+- `async_get_night_mode() -> IRmode`<br>
 queries and returns the sensor night mode setting:
     - bool result.LED
     - bool result.Sensor
 
-- `async_get_alarm_trigger(self) -> Trigger`<br>
+- `async_get_alarm_trigger() -> Trigger`<br>
 queries and returns the alarm trigger setting:
     - bool result.motion
     - bool result.audio
 
-- `async_get_alarm_action(self) -> Action`<br>   
+- `async_get_alarm_action() -> Action`<br>   
 queries and returns the alarm action setting:
     - bool result.audio    - sound the siren
     - bool result.ftp_snap - store snapshots to FTP server
     - bool result.ftp_rec  - store recordings to FTP server
 
-- `async_get_alarm_triggered(self) -> bool`<br>
+- `async_get_alarm_triggered() -> bool`<br>
 queries and returns `True` if an alram was detected.<br>
 *Currently not implemented, returns `False`*
 
-- `async_get_ftp_config(self)`<br>
+- `async_get_ftp_config()`<br>
 queries and returns the current FTP configuration
 
 
 ### Device Actions
-- `async_snap_picture(self)`<br>
+- `async_snap_picture()`<br>
 snaps a picture and returns the byte array
 
-- `async_mjpeg_stream(self, request)`<br>
+- `async_mjpeg_stream(request)`<br>
 requests and returns a motion JPEG stream
 
-- `async_set_alarm(self, trigger: Trigger, action: Action) -> Response`<br>
+- `async_set_alarm(trigger: Trigger, action: Action) -> Response`<br>
 Arms or disarms the camera by7 setting the `trigger` and `action` settings 
 
-- `async_ptz_preset(self, preset_pos:int)`<br>
+- `async_ptz_preset(preset_pos:int)`<br>
 moves the camera to the specified preprogrammed position if PTX is available
