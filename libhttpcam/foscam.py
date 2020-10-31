@@ -254,3 +254,6 @@ class Foscam(HttpCam):
             ('snapInterval',     '1'),    # in seconds# in seconds
             ('triggerInterval',  '5')]    # in seconds
         return await self._async_fetch(self.arm_cmd, params)
+
+    async def async_ptz_preset(self, preset_pos:int):
+        return (RESULT_CODE['0'], '')
